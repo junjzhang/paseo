@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+import { runPaseoCli } from "../../../../cli/tests/helpers/test-daemon.js";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -445,3 +447,119 @@ test("archive at final admission leaves no receipt preventing an explicit retry 
     await harness.close();
   }
 });
+
+test("CLI idle-only delivery preserves structured busy, retry, and replay results", async () => {
+  const { root, cwd } = await makeRoot();
+  const harness = await startHarness(root, cwd);
+  try {
+    const idlePromptFile = path.join(root, "cli-idle.txt");
+    const busyPromptFile = path.join(root, "cli-busy.txt");
+    const idleText = "cli idle-only notification";
+    const busyText = "cli busy notification";
+    await writeFile(idlePromptFile, idleText);
+    await writeFile(busyPromptFile, busyText);
+    const cliContext = { paseoHome: harness.daemon.paseoHome, workDir: cwd };
+    const sendArgs = (target: string, messageId: string, promptFile: string) => [
+      "--json",
+      "send",
+      target,
+      "--if-idle",
+      "--message-id",
+      messageId,
+      "--prompt-file",
+      promptFile,
+      "--no-wait",
+      "--host",
+      `127.0.0.1:${harness.daemon.port}`,
+    ];
+    const runCli = (args: string[]) =>
+      runPaseoCli(cliContext, args, {
+        // Keep tsx loader deprecation notices out of the CLI's JSON streams.
+        env: { PASEO_AGENT_ID: "", NODE_OPTIONS: "--no-deprecation" },
+        timeout: 30000,
+      });
+
+    const created = await harness.client.createAgent({
+      config: { provider: "codex", cwd },
+    });
+    const agentId = created.id;
+    const prefix = agentId.slice(0, 8);
+    const before = await harness.fetchAgent(agentId);
+    const sessionId = before.persistence?.sessionId;
+    assert.strictEqual(typeof sessionId, "string", "fake provider should expose a session ID");
+
+    // Idle delivery starts a turn and returns the canonical ID.
+    const idle = await runCli(sendArgs(prefix, "cli-idle-1", idlePromptFile));
+    assert.strictEqual(idle.exitCode, 0, `idle send should succeed: ${idle.stderr}`);
+    const idleResult = JSON.parse(idle.stdout.trim());
+    assert.deepStrictEqual(
+      { agentId: idleResult.agentId, status: idleResult.status },
+      { agentId, status: "sent" },
+      "idle send should return the canonical agent ID and sent status",
+    );
+    await harness.client.waitForFinish(agentId, 10_000);
+    assert.strictEqual(
+      harness.prompts.filter((prompt) => prompt.includes(idleText)).length,
+      1,
+      "idle send should dispatch exactly one prompt",
+    );
+
+    // A held turn rejects with agent_busy and no side effects.
+    const hold = harness.holdTurn("cli active turn");
+    try {
+      await harness.client.sendMessage(agentId, "cli active turn");
+      await hold.started;
+
+      const busy = await runCli(sendArgs(prefix, "cli-idle-busy", busyPromptFile));
+      assert.notStrictEqual(busy.exitCode, 0, "busy idle-only send should fail");
+      const busyError = JSON.parse(busy.stderr.trim());
+      assert.strictEqual(busyError.error.code, "agent_busy", "stderr should report agent_busy");
+      assert.strictEqual(
+        harness.prompts.filter((prompt) => prompt.includes(busyText)).length,
+        0,
+        "busy rejection should not dispatch the rejected prompt",
+      );
+      const during = await harness.fetchAgent(agentId);
+      assert.strictEqual(during.status, "running", "the active turn should keep running");
+      assert.strictEqual(during.persistence?.sessionId, sessionId);
+    } finally {
+      hold.release();
+    }
+    await harness.client.waitForFinish(agentId, 10_000);
+
+    // Retrying the same message ID after the turn finishes succeeds once.
+    const retry = await runCli(sendArgs(prefix, "cli-idle-busy", busyPromptFile));
+    assert.strictEqual(retry.exitCode, 0, `retry should succeed: ${retry.stderr}`);
+    const retryResult = JSON.parse(retry.stdout.trim());
+    assert.strictEqual(retryResult.agentId, agentId);
+    assert.strictEqual(retryResult.status, "sent");
+    await harness.client.waitForFinish(agentId, 10_000);
+    assert.strictEqual(
+      harness.prompts.filter((prompt) => prompt.includes(busyText)).length,
+      1,
+      "retry should dispatch the prompt exactly once",
+    );
+
+    // A completed replay is acknowledged without another turn.
+    const replay = await runCli(sendArgs(prefix, "cli-idle-busy", busyPromptFile));
+    assert.strictEqual(replay.exitCode, 0, `replay should be acknowledged: ${replay.stderr}`);
+    const replayResult = JSON.parse(replay.stdout.trim());
+    assert.strictEqual(replayResult.agentId, agentId);
+    assert.strictEqual(replayResult.status, "sent");
+    assert.strictEqual(
+      harness.prompts.filter((prompt) => prompt.includes(busyText)).length,
+      1,
+      "completed replay should not execute again",
+    );
+
+    const after = await harness.fetchAgent(agentId);
+    assert.strictEqual(
+      after.persistence?.sessionId,
+      sessionId,
+      "native session ID must not change",
+    );
+    assert.strictEqual(after.status, "idle");
+  } finally {
+    await harness.close();
+  }
+}, 60_000);
