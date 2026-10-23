@@ -24,7 +24,11 @@ interface Harness {
 const roots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  await Promise.all(
+    roots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })),
+  );
 });
 
 function promptText(prompt: AgentPromptInput): string {
@@ -475,7 +479,7 @@ test("CLI idle-only delivery preserves structured busy, retry, and replay result
     const runCli = (args: string[]) =>
       runPaseoCli(cliContext, args, {
         // Keep tsx loader deprecation notices out of the CLI's JSON streams.
-        env: { PASEO_AGENT_ID: "", NODE_OPTIONS: "--no-deprecation" },
+        env: { PASEO_AGENT_ID: "", NODE_OPTIONS: "--no-deprecation --conditions=source" },
         timeout: 30000,
       });
 
