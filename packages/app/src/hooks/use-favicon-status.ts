@@ -5,6 +5,7 @@ import { getDesktopHost } from "@/desktop/host";
 import { useWorkspaceStatusesForBadges } from "@/stores/session-store-hooks";
 import { deriveMacDockBadgeCountFromWorkspaceStatuses } from "@/utils/desktop-badge-state";
 import { isNative } from "@/constants/platform";
+import { useMenuBarStatus } from "@/desktop/menu-bar/use-menu-bar-status";
 
 type FaviconStatus = "none" | "running" | "attention";
 type ColorScheme = "dark" | "light";
@@ -95,6 +96,7 @@ async function updateMacDockBadge(count?: number) {
 
 export function useFaviconStatus() {
   const { agents } = useAggregatedAgents({ demand: !isNative });
+  useMenuBarStatus(agents);
   const workspaceStatuses = useWorkspaceStatusesForBadges();
   const [colorScheme, setColorScheme] = useState<ColorScheme>(getSystemColorScheme);
   const lastDockBadgeCountRef = useRef<number | undefined>(undefined);

@@ -1,4 +1,5 @@
 import { verifyAttachedDaemonControls } from "./daemon-lifecycle-renderer.electron.mjs";
+import { runMenuBarRegression } from "./menu-bar.electron.mjs";
 import { once } from "node:events";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir, copyFile } from "node:fs/promises";
@@ -78,6 +79,7 @@ async function command(name, args) {
   );
 }
 try {
+  await runMenuBarRegression();
   // Simulate a legacy independent launch that carries the old Desktop flag.
   const launch = await startDaemonInstance({
     home,

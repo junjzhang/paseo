@@ -6,6 +6,8 @@ export interface WorkspaceFileLocation {
   path: string;
   lineStart?: number;
   lineEnd?: number;
+  /** Heading id inside a Markdown preview. Line numbers stay on lineStart. */
+  anchor?: string;
 }
 
 export type WorkspaceFileTabTarget = { kind: "file" } & WorkspaceFileLocation;
@@ -29,10 +31,12 @@ export function normalizeWorkspaceFileLocation(
 
   const lineStart = normalizeLineNumber(location.lineStart);
   const lineEnd = normalizeLineNumber(location.lineEnd);
+  const anchor = normalizeAnchor(location.anchor);
   return {
     path,
     ...(lineStart ? { lineStart } : {}),
     ...(lineStart && lineEnd && lineEnd >= lineStart ? { lineEnd } : {}),
+    ...(anchor ? { anchor } : {}),
   };
 }
 
@@ -41,7 +45,10 @@ export function workspaceFileLocationsEqual(
   right: WorkspaceFileLocation,
 ): boolean {
   return (
-    left.path === right.path && left.lineStart === right.lineStart && left.lineEnd === right.lineEnd
+    left.path === right.path &&
+    left.lineStart === right.lineStart &&
+    left.lineEnd === right.lineEnd &&
+    left.anchor === right.anchor
   );
 }
 
@@ -52,6 +59,14 @@ export function createWorkspaceFileTabTarget(
     kind: "file",
     ...location,
   };
+}
+
+function normalizeAnchor(value: string | null | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const anchor = value.trim().replace(/^#/, "");
+  return anchor.length > 0 ? anchor : undefined;
 }
 
 function normalizeLineNumber(value: number | null | undefined): number | undefined {

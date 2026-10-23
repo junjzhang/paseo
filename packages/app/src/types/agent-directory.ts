@@ -8,6 +8,7 @@ export type AgentDirectoryEntry = Pick<
   | "status"
   | "turn"
   | "lastActivityAt"
+  | "lastError"
   | "cwd"
   | "workspaceId"
   | "provider"

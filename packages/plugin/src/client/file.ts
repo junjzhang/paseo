@@ -52,6 +52,8 @@ export interface PluginFileTab {
 
 /** The line a link or search result opened the file at. `revision` bumps on every new target. */
 export interface PluginFileLocation {
+  /** Heading fragment for rendered documents. */
+  anchor?: string;
   lineStart?: number;
   lineEnd?: number;
   revision: number;

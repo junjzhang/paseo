@@ -92,6 +92,8 @@ import {
   type DraftAgentProfileControls,
 } from "@/agent-profiles";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { MagpieComposerControls } from "./magpie";
+import { isFastFeatureEnabled } from "./magpie/model";
 
 interface AgentControlOption {
   id: string;
@@ -513,6 +515,7 @@ function ControlledAgentControls({
   const [openSelector, setOpenSelector] = useState<AgentControlSelector | null>(null);
   const initialDensity: ComposerControlDensity = isCompact ? "tight" : "full";
   const [density, setDensity] = useState<ComposerControlDensity>(initialDensity);
+  const [hasMagpieControls, setHasMagpieControls] = useState(false);
   const densityRef = useRef<ComposerControlDensity>(initialDensity);
   const availableWidthRef = useRef(0);
 
@@ -568,9 +571,10 @@ function ControlledAgentControls({
       hasThinking: canSelectThinking,
       hasMode: modeControl !== null && modeControl !== undefined,
       features: featureControls,
+      auxiliaryLabels: hasMagpieControls ? ["个人优先", "Ultra fast"] : [],
       fontScale,
     }),
-    [canSelectModel, canSelectThinking, featureControls, fontScale, modeControl],
+    [canSelectModel, canSelectThinking, featureControls, fontScale, modeControl, hasMagpieControls],
   );
   const presentation = useMemo(() => resolveComposerControlPresentation(density), [density]);
   const layoutContextValue = useMemo(
@@ -826,6 +830,15 @@ function ControlledAgentControls({
             canSwitchProvider={Boolean(onSelectProviderAndModel)}
           />
         )}
+        <MagpieComposerControls
+          serverId={modelSelectorServerId}
+          provider={provider}
+          model={selectedModelId}
+          disabled={disabled}
+          fastEnabled={isFastFeatureEnabled(features)}
+          compact={isCompact || density !== "full"}
+          onVisibilityChange={setHasMagpieControls}
+        />
       </View>
     </ComposerControlLayoutProvider>
   );

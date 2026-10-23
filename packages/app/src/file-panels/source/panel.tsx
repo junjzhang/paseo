@@ -50,6 +50,7 @@ const MAX_EDITABLE_BYTES = 1024 * 1024;
 
 /** A rendered view of the file's text: the panel's Preview, shown instead of its source. */
 export interface TextFilePreviewProps {
+  location: PluginFileLocation;
   text: string;
   target: BuiltinFilePanelProps["target"];
 }
@@ -80,12 +81,12 @@ export function TextFilePanel(props: TextFilePanelProps) {
 function useTextFileView(
   location: PluginFileLocation,
 ): [TextFileView, (view: TextFileView) => void] {
-  const lineTarget = location.lineStart ? location.revision : null;
-  const [view, setView] = useState<TextFileView>(lineTarget === null ? "preview" : "source");
-  const [shownLineTarget, setShownLineTarget] = useState(lineTarget);
-  if (lineTarget !== null && lineTarget !== shownLineTarget) {
-    setShownLineTarget(lineTarget);
-    setView("source");
+  const navigationTarget = location.lineStart || location.anchor ? location.revision : null;
+  const [view, setView] = useState<TextFileView>(location.lineStart ? "source" : "preview");
+  const [shownTarget, setShownTarget] = useState(navigationTarget);
+  if (navigationTarget !== null && navigationTarget !== shownTarget) {
+    setShownTarget(navigationTarget);
+    setView(location.lineStart ? "source" : "preview");
   }
   return [view, setView];
 }
@@ -132,7 +133,7 @@ function ReadonlyTextFile({
         onViewChange={Preview ? setView : undefined}
       />
       {showPreview ? (
-        <Preview text={text.text} target={target} />
+        <Preview text={text.text} target={target} location={location} />
       ) : (
         <ThemedFileSourceView
           content={text.text}
@@ -222,7 +223,7 @@ function EditableTextFile({ file, tab, location, target, preview: Preview }: Tex
         conflict={conflict}
       />
       {showPreview ? (
-        <Preview text={snapshot.content} target={target} />
+        <Preview text={snapshot.content} target={target} location={location} />
       ) : (
         <SourceEditor
           model={model}

@@ -49,6 +49,7 @@ import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { HostPicker as SharedHostPicker } from "@/components/hosts/host-picker";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { MenuBarQuotaSection } from "@/desktop/components/menu-bar-quota-section";
 import { AppearanceSection } from "@/screens/settings/appearance/appearance-section";
 import { OpenLocationSection } from "@/screens/settings/open-location/open-location-section";
 import { TerminalSection } from "@/screens/settings/terminal/terminal-section";
@@ -1347,6 +1348,13 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
       const item = SIDEBAR_SECTION_ITEMS.find((candidate) => candidate.id === view.section);
       if (!item || !isSectionAvailable(item, isDesktopApp)) return null;
       switch (view.section) {
+        case "appearance":
+          return (
+            <>
+              <MenuBarQuotaSection />
+              <AppearanceSection />
+            </>
+          );
         case "general":
           return (
             <>

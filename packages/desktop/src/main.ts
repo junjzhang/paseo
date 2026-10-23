@@ -61,6 +61,7 @@ import { createBrowserCaptureService } from "./features/browser-capture.js";
 import { registerEditorTargetHandlers } from "./features/editor-targets/ipc.js";
 import { resolveAppIconPath } from "./features/stamped-icon.js";
 import { setupApplicationMenu } from "./features/menu.js";
+import { setupMenuBar } from "./features/menu-bar.js";
 import {
   BROWSER_NEW_TAB_REQUEST_EVENT,
   decideBrowserWindowOpenRequest,
@@ -370,6 +371,7 @@ let pendingAgentNavigation = parseAgentDeepLinkFromArgv(process.argv);
 // in-app "Open in new window" action) land on the right project without
 // racing a global.
 let desktopWindowOwner: DesktopWindowOwner<AgentDeepLinkTarget>;
+let menuBar: ReturnType<typeof setupMenuBar> = null;
 
 if (PASEO_DEBUG) {
   log.info("[open-project] argv:", process.argv);
@@ -713,6 +715,7 @@ async function createWindow(
     },
   });
   applyDesktopWindowChromeMode({ win: mainWindow, mode: DESKTOP_WINDOW_CHROME_MODE });
+  menuBar?.attach(mainWindow);
 
   const webContentsId = mainWindow.webContents.id;
   options.onCreated?.(webContentsId);
@@ -826,10 +829,13 @@ desktopWindowOwner = createDesktopWindowOwner<AgentDeepLinkTarget>({
     });
     return ownedDesktopWindow(win);
   },
-  windows: () => BrowserWindow.getAllWindows().map(ownedDesktopWindow),
+  windows: () =>
+    BrowserWindow.getAllWindows()
+      .filter((win) => !menuBar?.isDashboard(win))
+      .map(ownedDesktopWindow),
   focusedWindow: () => {
     const win = BrowserWindow.getFocusedWindow();
-    if (!win) return null;
+    if (!win || menuBar?.isDashboard(win)) return null;
     return ownedDesktopWindow(win);
   },
   agentRoute: buildAgentDeepLinkRoute,
@@ -992,6 +998,11 @@ async function bootstrap(): Promise<void> {
     await desktopWindowOwner.openAdditional({
       pendingProjectPath: typeof pendingPath === "string" ? pendingPath : null,
     });
+  });
+
+  menuBar = setupMenuBar({
+    onShow: () => desktopWindowOwner.restoreWhenActivated(),
+    onOpenAgent: (target) => desktopWindowOwner.openOrFocusAgent(target),
   });
 
   // The first window of the session restores and persists saved geometry.

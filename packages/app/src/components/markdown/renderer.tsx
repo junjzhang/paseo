@@ -34,6 +34,8 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
   compact?: boolean;
   streaming?: boolean;
   onLinkPress?: (url: string) => unknown;
+  /** Return true when a document-specific navigator handled the link. */
+  onNavigateLink?: (url: string) => boolean;
 }
 
 /** All Markdown surfaces share the same engine and source adaptation. */
@@ -59,6 +61,7 @@ const MarkdownPart = memo(function MarkdownPart({
   compact = false,
   streaming = false,
   onLinkPress,
+  onNavigateLink,
   ...imageContext
 }: MarkdownRendererProps) {
   const environment = useAssistantFileLinkEnvironment();
@@ -77,6 +80,7 @@ const MarkdownPart = memo(function MarkdownPart({
   });
   const [image, setImage] = useState<ImageLightboxSource | null>(null);
   const pressLink = useStableEvent(({ url, sourceType }: LinkPressEvent) => {
+    if (sourceType === "markdown" && onNavigateLink?.(url)) return;
     const source = linkSource(url, sourceType);
     if (onLinkPress && !actions.canResolveFile(source)) onLinkPress(url);
     else actions.open(source, "preferred");

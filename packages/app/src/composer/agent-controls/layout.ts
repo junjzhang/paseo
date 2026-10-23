@@ -5,6 +5,7 @@ export interface ComposerControlPresence {
   hasThinking: boolean;
   hasMode: boolean;
   features: readonly ComposerFeatureControlPresence[];
+  auxiliaryLabels?: readonly string[];
   fontScale: number;
 }
 
@@ -40,7 +41,12 @@ function sumControlWidths(widths: number[]): number {
 }
 
 function estimateLabelWidth(label: string, fontScale: number): number {
-  return Array.from(label).length * 7 * fontScale;
+  return (
+    Array.from(label).reduce(
+      (width, character) => width + (character.charCodeAt(0) > 255 ? 14 : 7),
+      0,
+    ) * fontScale
+  );
 }
 
 function resolveFeatureControlWidth(
@@ -63,6 +69,9 @@ function resolveCondensedFloor(controls: ComposerControlPresence): number {
   if (controls.hasThinking) widths.push(COMPOSER_TOOLBAR_GEOMETRY.controlSize);
   if (controls.hasMode) widths.push(36 + 96 * fontScale);
   if (controls.features.length > 0) widths.push(COMPOSER_TOOLBAR_GEOMETRY.controlSize);
+  for (const _label of controls.auxiliaryLabels ?? []) {
+    widths.push(COMPOSER_TOOLBAR_GEOMETRY.controlSize);
+  }
   return sumControlWidths(widths);
 }
 
@@ -74,6 +83,10 @@ function resolveFullFloor(controls: ComposerControlPresence): number {
   if (controls.hasMode) widths.push(54 + 96 * fontScale);
   for (const feature of controls.features) {
     widths.push(resolveFeatureControlWidth(feature, fontScale));
+  }
+  for (const label of controls.auxiliaryLabels ?? []) {
+    // Icon, label, caret and padding must fit before restoring expanded controls.
+    widths.push(64 + estimateLabelWidth(label, fontScale));
   }
   return sumControlWidths(widths);
 }

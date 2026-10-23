@@ -67,11 +67,12 @@ export function FilePane({
   usePublishPanelInstanceAttributes({ modified, suspendPendingSave: handle?.holdWrites });
   const panelLocation = useMemo(
     () => ({
+      anchor: location.anchor,
       lineStart: location.lineStart,
       lineEnd: location.lineEnd,
       revision: navigationRevision,
     }),
-    [location.lineEnd, location.lineStart, navigationRevision],
+    [location.anchor, location.lineEnd, location.lineStart, navigationRevision],
   );
   const panelTarget = useMemo(
     () => ({ serverId, workspaceRoot: root, path }),

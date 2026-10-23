@@ -155,6 +155,7 @@ describe("composer control layout", () => {
   });
 
   it("gives every toolbar control one shell and one platform glyph envelope", () => {
+    // Existing geometry remains shared by Magpie and provider controls.
     expect(COMPOSER_TOOLBAR_GEOMETRY).toEqual({
       controlSize: 28,
       controlGap: 4,
@@ -164,5 +165,51 @@ describe("composer control layout", () => {
     });
     expect(resolveComposerToolbarGlyphSize("web")).toBe(16);
     expect(resolveComposerToolbarGlyphSize("native")).toBe(20);
+  });
+
+  it("reserves room for account and speed controls before displaying full labels", () => {
+    const controls = {
+      hasModel: true,
+      hasThinking: true,
+      hasMode: true,
+      features: [{ type: "toggle" as const }],
+      auxiliaryLabels: ["个人优先", "Ultra fast"],
+      fontScale: 1,
+    };
+    expect(
+      resolveComposerControlDensity({
+        availableWidth: 580,
+        currentDensity: "full",
+        controls,
+      }),
+    ).toBe("condensed");
+    expect(
+      resolveComposerControlDensity({
+        availableWidth: 740,
+        currentDensity: "condensed",
+        controls,
+      }),
+    ).toBe("full");
+    expect(
+      resolveComposerControlDensity({
+        availableWidth: 340,
+        currentDensity: "condensed",
+        controls,
+      }),
+    ).toBe("tight");
+    expect(
+      resolveComposerControlDensity({
+        availableWidth: 380,
+        currentDensity: "tight",
+        controls,
+      }),
+    ).toBe("condensed");
+    expect(
+      resolveComposerControlDensity({
+        availableWidth: 740,
+        currentDensity: "condensed",
+        controls: { ...controls, fontScale: 1.25 },
+      }),
+    ).toBe("condensed");
   });
 });
